@@ -65,23 +65,23 @@ class CreateModal(discord.ui.Modal, title="Enter Your recommendations"):
                 genre = "NA"
             else:
                 genre = self.field2.value.strip()
-
             night = {
                 "ID": ID,
                 "Name": name,
                 "Genre": genre,
                 "Date": date,
                 "Time": time,
-                "username": interaction.user.username,
+                "username": interaction.user.name,
                 "userID": interaction.user.id,
             }
             nights.insert_one(night)
             await interaction.response.send_message(f"""Your movie night has been created,
-                                                    ID: {ID}, 
-                                                    Name: {name}, 
-                                                    Genre: {genre}, 
-                                                    Date: {date}, 
-                                                    Time: {time}""")
+ID: {ID}, 
+Name: {name}, 
+Genre: {genre}, 
+Date: {date}, 
+Time: {time}
+by {interaction.user.name}""")
         except Exception as e:
             await interaction.response.send_message(f"An error occurred while submitting your recommendations: {e}", ephemeral=True)
 
@@ -144,9 +144,9 @@ class CreateModal(discord.ui.Modal, title="Enter Your recommendations"):
 #                     ephemeral=True
 #                 )
 
-@bot.tree.command(name="recommend")
-async def recommend(interaction: discord.Interaction):
-    await interaction.response.send_modal(MyModal())
+# @bot.tree.command(name="recommend")
+# async def recommend(interaction: discord.Interaction):
+#     await interaction.response.send_modal(MyModal())
 
 @bot.tree.command(name="ping")
 async def ping(interaction: discord.Interaction):
