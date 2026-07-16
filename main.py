@@ -1,10 +1,8 @@
 import discord
 from discord.ext import commands
-import csv
 import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
-import json
 
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
@@ -14,17 +12,6 @@ client = MongoClient(uri)
 
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="/", intents=intents)
-
-# class Create(discord.ui.LayoutView):    
-#     text_display1 = discord.ui.TextDisplay(content="New movie night scheduled")
-    
-#     container1 = discord.ui.Container(
-#         discord.ui.TextDisplay(content=f"ID: {ID}"),
-#         discord.ui.TextDisplay(content=f"Name: {name}"),
-#         discord.ui.TextDisplay(content=f"Genre: {genre}"),
-#         discord.ui.TextDisplay(content=f"Date: {date}"),
-#         discord.ui.TextDisplay(content=f"Time: {time}"),
-#     )
 
 
 def score(ID):
@@ -94,14 +81,16 @@ class CreateModal(discord.ui.Modal, title="Enter Your recommendations"):
                 "recommendations": {},
                 "active": True
             }
+
             nights.insert_one(night)
-            await interaction.response.send_message(f"""Your movie night has been created,
-ID: {ID}, 
-Name: {name}, 
-Genre: {genre}, 
-Date: {date}, 
-Time: {time}
-by {interaction.user.name}""")
+
+            embed = discord.Embed(title="Movie night created", description=f"ID: {ID}")
+            embed.add_field(name="Name", value=name, inline=False)
+            embed.add_field(name="Genre", value=genre, inline=False)
+            embed.add_field(name="Date", value=date, inline=False)
+            embed.add_field(name="Time", value=time, inline=False)
+            embed.add_field(name="Created by", value=f"<@{interaction.user.id}>", inline=False)
+            await interaction.response.send_message(embed=embed)
         except Exception as e:
             await interaction.response.send_message(f"An error occurred while submitting your recommendations: {e}", ephemeral=True)
 
@@ -142,7 +131,7 @@ class RecommendModal(discord.ui.Modal, title="Enter Your recommendations"):
                 nights = database.get_collection("nights")
                 night = nights.find_one({"ID": self.id})
                 reccommendations = night["recommendations"]
-                reccommendations[interaction.user.name] = [
+                reccommendations[interaction.user.id] = [
                     self.field1.value.strip().lower(),
                     self.field2.value.strip().lower(),
                     self.field3.value.strip().lower()
@@ -166,10 +155,10 @@ async def recommend(interaction: discord.Interaction, id: str):
         if night is None:
             await interaction.response.send_message("You have not created a movie night yet. Please create one first.", ephemeral=True)
             return
-        elif interaction.user.name not in night["users"]:
+        elif interaction.user.id not in night["users"]:
             await interaction.response.send_message("You have not joined this movie night. Please join it first.", ephemeral=True)
             return
-        elif interaction.user.name in night["recommendations"]:
+        elif interaction.user.id in night["recommendations"]:
             await interaction.response.send_message("You have already submitted your recommendations for this movie night.", ephemeral=True)
             return
         elif not night["active"]:
@@ -203,7 +192,7 @@ async def join(interaction: discord.Interaction, id: str):
             if interaction.user.name in night["users"]:
                 await interaction.response.send_message(f"You have already joined the movie night with ID: {id}", ephemeral=True)
             else:
-                nights.update_one({"ID": id}, {"$push": {"users": interaction.user.name}})
+                nights.update_one({"ID": id}, {"$push": {"users": interaction.user.id}})
                 await interaction.response.send_message(f"You have successfully joined the movie night with ID: {id}", ephemeral=True)
     except Exception as e:
         await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
@@ -223,7 +212,7 @@ async def list(interaction: discord.Interaction, id:str):
             date = night["Date"]
             time = night["Time"]
             people = night["users"]
-            message = f"Movie Night ID: {id}\nName: {name}\nGenre: {genre}\nDate: {date}\nTime: {time}\nPeople joined: {', '.join(people)}"
+            message = f"Movie Night ID: {id}\nName: {name}\nGenre: {genre}\nDate: {date}\nTime: {time}\nPeople joined: {', '.join(f'<@{person}>' for person in people)}"
             reccommendations = night["recommendations"]
             if interaction.user.name == night["username"]:
                 message += "\nRecommendations:\n"
@@ -251,12 +240,19 @@ async def end(interaction: discord.Interaction, id:str):
             people = night["users"]
             scores = score(id)
             sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-            message = f"Movie Night ID: {id} has ended.\nPeople joined: {', '.join(people)}\nMovie Recommendations and Scores:\n"
+            embed = discord.Embed(title=f"Movie Night ID: {id} has ended", description="Here are the movie recommendations and their scores:")
             for movie, score in sorted_scores:
-                message += f"{movie}: {score}\n"
-            await interaction.response.send_message(message)
+                embed.add_field(name=movie, value=f"Score: {score}", inline=False)
+                embed.add_field(name="People joined", value=', '.join(f'<@{person}>' for person in people), inline=False)
+                embed.add_field(name="Created by", value=f"<@{night['userID']}>", inline=False)
+                embed.add_field(name="Date", value=night["Date"], inline=False)
+                embed.add_field(name="Time", value=night["Time"], inline=False)
+                embed.add_field(name="Genre", value=night["Genre"], inline=False)
+            await interaction.response.send_message(embed=embed)
     except Exception as e:
         await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
+
+
 
 @bot.event
 async def on_ready():
