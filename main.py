@@ -205,6 +205,8 @@ async def list(interaction: discord.Interaction, id:str):
         night = nights.find_one({"ID": id})
         if night is None:
             await interaction.response.send_message(f"No movie night scheduled with the ID: {id}", ephemeral=True)
+        elif interaction.user.id not in night["users"]:
+            await interaction.response.send_message(f"You have not joined the movie night with ID: {id}. Please join it first.", ephemeral=True)
         else:
             name = night["Name"]
             genre = night["Genre"]
