@@ -22,11 +22,11 @@ def score_movies(ID):
         reccommendations = night["recommendations"]
         movies = {}
         for i in reccommendations.values():
-            for j in i:
-                if j in movies:
-                    movies[j] += 1
+            for j in range(3):
+                if i[j] in movies:
+                    movies[i[j]] += 3-j
                 else:
-                    movies[j] = 1
+                    movies[i[j]] = 3-j
         return movies
     except Exception as e:
         print(f"An error occurred while calculating scores: {e}")
@@ -247,7 +247,7 @@ async def end(interaction: discord.Interaction, id:str):
             people = night["users"]
             scores = score_movies(id)
             sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-            embed = discord.Embed(title=f"{night['name']}, ID: {id} has ended", description="Here are the movie recommendations and their scores:")
+            embed = discord.Embed(title=f"{night['Name']}, ID: {id} has ended", description="Here are the movie recommendations and their scores:")
             message = ""
             for movie, score in sorted_scores:
                 message += f"- {movie}: {score}\n"
