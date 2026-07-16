@@ -252,7 +252,16 @@ async def end(interaction: discord.Interaction, id:str):
     except Exception as e:
         await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
 
-
+@bot.tree.command(name="help")
+async def help(interaction: discord.Interaction):
+    embed = discord.Embed(title="Movie Night Bot Commands", description="Here are the available commands:")
+    embed.add_field(name="/make", value="Create a new movie night.", inline=False)
+    embed.add_field(name="/join <id>", value="Join an existing movie night with the given ID.", inline=False)
+    embed.add_field(name="/recommend <id>", value="Submit your movie recommendations for the movie night with the given ID.", inline=False)
+    embed.add_field(name="/list <id>", value="List the details of the movie night with the given ID.", inline=False)
+    embed.add_field(name="/end <id>", value="End the movie night with the given ID and display the recommendations and scores. (Only the creator can end the movie night)", inline=False)
+    embed.add_field(name="/help", value="Display this help message.", inline=False)
+    await interaction.response.send_message(embed=embed)
 
 @bot.event
 async def on_ready():
