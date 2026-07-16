@@ -14,7 +14,7 @@ intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 
-def score(ID):
+def score_movies(ID):
     try:
         database = client.get_database("movienights")
         nights = database.get_collection("nights")
@@ -77,11 +77,10 @@ class CreateModal(discord.ui.Modal, title="Enter Your recommendations"):
                 "Time": time,
                 "username": interaction.user.name,
                 "userID": interaction.user.id,
-                "users": [interaction.user.name],
+                "users": [interaction.user.id],
                 "recommendations": {},
                 "active": True
             }
-
             nights.insert_one(night)
 
             embed = discord.Embed(title="Movie night created", description=f"ID: {ID}")
@@ -131,7 +130,7 @@ class RecommendModal(discord.ui.Modal, title="Enter Your recommendations"):
                 nights = database.get_collection("nights")
                 night = nights.find_one({"ID": self.id})
                 reccommendations = night["recommendations"]
-                reccommendations[interaction.user.id] = [
+                reccommendations[str(interaction.user.id)] = [
                     self.field1.value.strip().lower(),
                     self.field2.value.strip().lower(),
                     self.field3.value.strip().lower()
@@ -189,7 +188,7 @@ async def join(interaction: discord.Interaction, id: str):
         elif not night["active"]:
             await interaction.response.send_message(f"The movie night with ID: {id} is no longer taking recommendations.", ephemeral=True)
         else:
-            if interaction.user.name in night["users"]:
+            if interaction.user.id in night["users"]:
                 await interaction.response.send_message(f"You have already joined the movie night with ID: {id}", ephemeral=True)
             else:
                 nights.update_one({"ID": id}, {"$push": {"users": interaction.user.id}})
@@ -212,15 +211,21 @@ async def list(interaction: discord.Interaction, id:str):
             date = night["Date"]
             time = night["Time"]
             people = night["users"]
-            message = f"Movie Night ID: {id}\nName: {name}\nGenre: {genre}\nDate: {date}\nTime: {time}\nPeople joined: {', '.join(f'<@{person}>' for person in people)}"
+            embed = discord.Embed(title=f"Movie Night ID: {id}", description=f"Details of the movie night with ID: {id}")
+            embed.add_field(name="Name", value=name, inline=False)
+            embed.add_field(name="Genre", value=genre, inline=False)
+            embed.add_field(name="Date", value=date, inline=False)
+            embed.add_field(name="Time", value=time, inline=False)
+            embed.add_field(name="People joined", value=', '.join(f'<@{person}>' for person in people), inline=False)
             reccommendations = night["recommendations"]
-            if interaction.user.name == night["username"]:
-                message += "\nRecommendations:\n"
+            if interaction.user.id == night["userID"]:
+                message = "Here are the recommendations submitted by users:\n"
                 for user, recs in reccommendations.items():
-                    message += f"{user}: {', '.join(recs)}\n"
-                await interaction.response.send_message(message)
+                    message += f"<@{user}>: {', '.join(recs)}\n"
+                embed.add_field(name="Recommendations", value=message, inline=False)
+                await interaction.response.send_message(embed=embed, ephemeral=True)
             else:
-                await interaction.response.send_message(message)
+                await interaction.response.send_message(embed=embed, ephemeral=True)
     except Exception as e:
         await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
 
@@ -233,21 +238,25 @@ async def end(interaction: discord.Interaction, id:str):
         night = nights.find_one({"ID": id})
         if night is None:
             await interaction.response.send_message(f"No movie night scheduled with the ID: {id}", ephemeral=True)
-        elif interaction.user.name != night["username"]:
+        elif interaction.user.id != night["userID"]:
             await interaction.response.send_message(f"You are not the creator of the movie night with ID: {id}. Only the creator can end it.", ephemeral=True)
+        elif not night["active"]:
+            await interaction.response.send_message(f"The movie night with ID: {id} has already ended.", ephemeral=True)
         else:
             nights.update_one({"ID": id}, {"$set": {"active": False}})
             people = night["users"]
-            scores = score(id)
+            scores = score_movies(id)
             sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-            embed = discord.Embed(title=f"Movie Night ID: {id} has ended", description="Here are the movie recommendations and their scores:")
+            embed = discord.Embed(title=f"{night['name']}, ID: {id} has ended", description="Here are the movie recommendations and their scores:")
+            message = ""
             for movie, score in sorted_scores:
-                embed.add_field(name=movie, value=f"Score: {score}", inline=False)
-                embed.add_field(name="People joined", value=', '.join(f'<@{person}>' for person in people), inline=False)
-                embed.add_field(name="Created by", value=f"<@{night['userID']}>", inline=False)
-                embed.add_field(name="Date", value=night["Date"], inline=False)
-                embed.add_field(name="Time", value=night["Time"], inline=False)
-                embed.add_field(name="Genre", value=night["Genre"], inline=False)
+                message += f"- {movie}: {score}\n"
+            embed.add_field(name="Recommendations", value=message, inline=False)
+            embed.add_field(name="People joined", value=', '.join(f'<@{person}>' for person in people), inline=False)
+            embed.add_field(name="Created by", value=f"<@{night['userID']}>", inline=False)
+            embed.add_field(name="Date", value=night["Date"], inline=False)
+            embed.add_field(name="Time", value=night["Time"], inline=False)
+            embed.add_field(name="Genre", value=night["Genre"], inline=False)
             await interaction.response.send_message(embed=embed)
     except Exception as e:
         await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
